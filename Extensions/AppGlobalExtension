@@ -1,0 +1,1233 @@
+//
+//  Extension.swift
+//  student
+//
+//  Created by zakaru on 11/20/17.
+//
+
+import Foundation
+import UIKit
+import Parse
+
+let jpStringFormat = "yyyy/MM/dd"
+let eventDateStringFormat = "yyyy/MM/dd"
+let jpShortStringFormat = "MM月dd日"
+let shortStringFormat = "MM/dd"
+let shortTimeFormat = "HH:mm"
+let fullDateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
+let yearMonthFormat = "yyyy年 MM月"
+let monthDayFormat = "MM月 dd日"
+let monthFormat = "yyyy-MM"
+let dayFormat = "d"
+let dbFormat = "yyyy-MM-dd"
+let lock = NSLock()
+
+// MARK: - TypeName
+
+protocol TypeName {
+    static var typeName: String { get }
+}
+
+extension NSObject: TypeName {
+    static var typeName: String {
+        return String(describing: self)
+    }
+}
+
+// MARK: - PFUser
+
+extension PFUser {
+    
+    func getRole() -> String? {
+        return object(forKey: "role") as? String
+    }
+    
+    func isPresident() -> Bool {
+        if let role = getRole(), role == UserRole.PRESIDENT.rawValue {
+            return true
+        }
+        return false
+    }
+    
+    func isStudent() -> Bool {
+        if let role = getRole(), role == UserRole.STUDENT.rawValue {
+            return true
+        }
+        return false
+    }
+    
+}
+
+// MARK: - Dictionary
+
+extension Dictionary {
+    public func map<T: Hashable, U>( transform: (Key, Value) -> (T, U)) -> [T: U] {
+        var result: [T: U] = [:]
+        for (key, value) in self {
+            let (transformedKey, transformedValue) = transform(key, value)
+            result[transformedKey] = transformedValue
+        }
+        return result
+    }
+    
+    public func map<T: Hashable, U>( transform: (Key, Value) throws -> (T, U)) rethrows -> [T: U] {
+        var result: [T: U] = [:]
+        for (key, value) in self {
+            let (transformedKey, transformedValue) = try transform(key, value)
+            result[transformedKey] = transformedValue
+        }
+        return result
+    }
+}
+
+// MARK: - Date
+
+extension Date {
+    
+    func timeAgo() -> String {
+        var timeString = ""
+        let timeInterval = abs(timeIntervalSinceNow)
+        // Time rule
+        // T = post time
+        // T < 1m => "Now"
+        // 1m <= T < 1hr => "T min(s)"
+        // 1hr <= T < 24h => "T hour(s)"
+        // 24h <= T < 7d => "T day(s)"
+        // T >= 7d  => "MMMdd"
+        
+        let oneMin: Double = 60
+        let oneHour: Double = 60 * 60
+        let twentyfourHours: Double = 60 * 60 * 24
+        let weekHours = 7 * twentyfourHours
+        
+        if timeInterval < oneMin {
+            timeString = "Now"
+        } else if timeInterval >= oneMin && timeInterval < oneHour {
+            let minAgo: Int = Int(timeInterval / oneMin)
+            if minAgo > 1 {
+                timeString = "\(minAgo) mins"
+            } else {
+                timeString = "\(minAgo) min"
+            }
+            
+        } else if timeInterval >= oneHour && timeInterval < twentyfourHours {
+            let hourAgo: Int = Int(timeInterval / oneHour)
+            if hourAgo > 1 {
+                timeString = "\(hourAgo) hours"
+            } else {
+                timeString = "\(hourAgo) hour"
+            }
+        } else if timeInterval >= twentyfourHours && timeInterval < weekHours {
+            let dayAgo: Int = Int(timeInterval / twentyfourHours)
+            if dayAgo > 1 {
+                timeString = "\(dayAgo) days"
+            } else {
+                timeString = "\(dayAgo) day"
+            }
+        } else {
+            timeString = DateFormatter.MMMdd.string(from: self)
+        }
+        
+        return timeString
+    }
+    
+    var age: Int {
+        let unitFlags:Set<Calendar.Component> = [
+            .hour, .day, .month,
+            .year, .minute, .hour, .second,
+            .calendar]
+        
+        return Calendar.current.dateComponents(unitFlags, from: self, to: Date()).year ?? 0
+    }
+    
+    static func increaseMinutesToTime(_ dateString: String, addMinute: Int) -> String? {
+        let comps = dateString.components(separatedBy: ":")
+        guard comps.count == 2 else {
+            return nil
+        }
+        guard let hour = Int(comps.first!) else {
+            return nil
+        }
+        guard let minute = Int(comps.last!) else {
+            return nil
+        }
+        
+        let date = Date().dateWithTime(hour, minute: minute)
+        let calendar = Calendar.current
+        let newDate = calendar.date(byAdding: .minute, value: addMinute, to: date)
+        return newDate?.getDateString(shortTimeFormat)
+    }
+    
+    func getTimeString() -> String {
+        let calendar = Calendar.current
+        let comp = calendar.dateComponents([.hour, .minute], from: self)
+        let hour = String(format: "%.2d", comp.hour!)
+        let minute = String(format: "%.2d", comp.minute!)
+        return hour + ":" + minute
+    }
+    
+    func getDateString() -> String {
+        let dateFormatter = DateFormatter.gInit()
+        dateFormatter.dateFormat = dbFormat
+        let dateString = dateFormatter.string(from: self)
+        return dateString
+    }
+    
+    func getDayString() -> String {
+        let dateFormatter = DateFormatter.gInit()
+        dateFormatter.dateStyle = .full
+        dateFormatter.timeStyle = .none
+        dateFormatter.locale = Locale(identifier: "ja_JP")
+        return dateFormatter.string(from: self)
+    }
+    
+    func getDateString(_ format: String) -> String {
+        let dateFormatter = DateFormatter.gInit()
+        dateFormatter.dateFormat = format
+        return dateFormatter.string(from: self)
+    }
+    
+    func getEventDateString() -> String {
+        var calendar = Calendar.current
+        calendar.locale = Locale(identifier: "ja_JP")
+        let weekday = calendar.component(.weekday, from: self)
+        let dayNames = ["日","月","火","水","木","金","土"]
+        
+        return getDateString(eventDateStringFormat) + " " + "(" + dayNames[weekday-1] + ")"
+    }
+    
+    func dateWithTime(_ hour: Int, minute: Int) -> Date {
+        let calendar = Calendar.current
+        var components = calendar.dateComponents([.year, .month, .day, .hour, .minute, .second], from: self)
+        components.hour = hour
+        components.minute = minute
+        return calendar.date(from: components)!
+    }
+    
+    func setYear(_ year: Int) -> Date? {
+        let calendar = Calendar.current
+        let unitFlags:Set<Calendar.Component> = [
+            .hour, .day, .month,
+            .year,.minute,.hour,.second,
+            .calendar]
+        var dateComps = calendar.dateComponents(unitFlags, from: self)
+        dateComps.year = year
+      
+        return dateComps.date
+    }
+    
+    // "Time ago" function for Swift (based on MatthewYork's DateTools for Objective-C)
+    
+    func timeAgo(_ numericDates: Bool) -> String {
+        let calendar = NSCalendar.current
+        let unitFlags: Set<Calendar.Component> = [.minute, .hour, .day, .weekOfYear, .month, .year, .second]
+        let now = Date()
+        let earliest = now < self ? now : self
+        let latest = (earliest == now) ? self : now
+        let components = calendar.dateComponents(unitFlags, from: earliest,  to: latest)
+        
+        if (components.year! >= 2) {
+            return "\(components.year!) years ago"
+        } else if (components.year! >= 1){
+            if (numericDates){
+                return "1 year ago"
+            } else {
+                return "Last year"
+            }
+        } else if (components.month! >= 2) {
+            return "\(components.month!) months ago"
+        } else if (components.month! >= 1){
+            if (numericDates){
+                return "1 month ago"
+            } else {
+                return "Last month"
+            }
+        } else if (components.weekOfYear! >= 2) {
+            return "\(components.weekOfYear!) weeks ago"
+        } else if (components.weekOfYear! >= 1){
+            if (numericDates){
+                return "1 week ago"
+            } else {
+                return "Last week"
+            }
+        } else if (components.day! >= 2) {
+            return "\(components.day!) days ago"
+        } else if (components.day! >= 1){
+            if (numericDates){
+                return "1 day ago"
+            } else {
+                return "Yesterday"
+            }
+        } else if (components.hour! >= 2) {
+            return "\(components.hour!) hours ago"
+        } else if (components.hour! >= 1){
+            if (numericDates){
+                return "1 hour ago"
+            } else {
+                return "An hour ago"
+            }
+        } else if (components.minute! >= 2) {
+            return "\(components.minute!) minutes ago"
+        } else if (components.minute! >= 1){
+            if (numericDates){
+                return "1 minute ago"
+            } else {
+                return "A minute ago"
+            }
+        } else if (components.second! >= 3) {
+            return "\(components.second!) seconds ago"
+        } else {
+            return "Just now"
+        }
+    }
+    
+    static func getTimeZone(_ identifier: String? = nil) -> String {
+        let id = identifier ?? "ja_JP"
+        let date = Date()
+        let formatter = DateFormatter.gInit()
+        formatter.timeZone = TimeZone(identifier: id)
+        formatter.dateFormat = "ZZZ"
+        return formatter.string(from: date)
+    }
+    
+    func isBetweeen(date date1: Date, andDate date2: Date) -> Bool {
+        return date1.compare(self).rawValue * self.compare(date2).rawValue >= 0
+    }
+
+}
+
+
+// MARK: - String
+
+extension String {
+    
+    var localized: String {
+        return NSLocalizedString(self, tableName: nil, bundle: Bundle.main, value: "", comment: "")
+    }
+    
+    func rangesOfString(searchstr: String)->[NSRange] {
+        let ranges: [NSRange]
+        do {
+            let regex = try NSRegularExpression(pattern: searchstr, options: [])
+            ranges = regex.matches(in: self, options: [], range: NSMakeRange(0, count)).map {$0.range}
+        } catch {
+            ranges = []
+        }
+        
+        return ranges
+    }
+    
+    func condenseWhitespace() -> String {
+        return self.components(separatedBy: CharacterSet.whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+    }
+    
+    func trimWhitespacesAndNewlines() -> String {
+        
+        var returnString = self
+        
+        returnString = returnString.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+        returnString = returnString.components(separatedBy: CharacterSet.whitespaces)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+        
+        
+        returnString = returnString.components(separatedBy: CharacterSet.newlines)
+            .map({ $0.trimmingCharacters(in: .whitespaces)})
+            .filter { !$0.isEmpty}
+            .joined(separator: "\n")
+        
+        return returnString
+    }
+    
+    func trim() -> String {
+        let regexString = "(\\r|\\n)+"
+        let range = NSMakeRange(0, self.count)
+        do {
+            let regex = try NSRegularExpression(pattern: regexString, options: NSRegularExpression.Options.caseInsensitive)
+            let string = regex.stringByReplacingMatches(in: self,
+                                                        options: NSRegularExpression.MatchingOptions(rawValue: 0),
+                                                        range: range,
+                                                        withTemplate: "\n")
+            return string
+        } catch {
+            return self
+        }
+    }
+    
+    func trimmed() -> String {
+        return self.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+    }
+    
+    func getDate(_ format: String? = nil) -> Date? {
+        let dateFormat = format ?? fullDateFormat
+        let dateFormatter = DateFormatter.gInit()
+        dateFormatter.dateFormat = dateFormat
+        let date = dateFormatter.date(from: self)
+        return date
+    }
+    
+    func getDate(_ format: String? = nil, timeZone zone: String) -> Date? {
+        let dateFormat = format ?? fullDateFormat
+        let dateFormatter = DateFormatter.gInit()
+        dateFormatter.dateFormat = dateFormat
+        dateFormatter.timeZone = TimeZone(abbreviation: zone)
+        let date = dateFormatter.date(from: self)
+        return date
+    }
+    
+    func getAttributeString(_ font: UIFont, color: UIColor) -> NSAttributedString {
+        let paragraph = NSParagraphStyle.default.mutableCopy() as! NSMutableParagraphStyle
+        paragraph.alignment = .center
+        
+        let attr = NSAttributedString(string: self,
+                                      attributes:
+            [NSAttributedString.Key.foregroundColor: color,
+             NSAttributedString.Key.paragraphStyle: paragraph,
+             NSAttributedString.Key.font: font])
+        return attr
+    }
+    
+    func isValidEmail() -> Bool {
+        let laxString = "[A-Z0-9a-z\\._%+-]+@([A-Za-z0-9-]+\\.)+[A-Za-z]{2,4}"
+        let emailTest : NSPredicate = NSPredicate(format:"SELF MATCHES %@", laxString)
+        return emailTest.evaluate(with: self)
+    }
+    
+    func width(withConstraintedHeight height: CGFloat, font: UIFont) -> CGFloat {
+        let constraintRect = CGSize(width: .greatestFiniteMagnitude, height: height)
+        let boundingBox = self.boundingRect(with: constraintRect, options: .usesLineFragmentOrigin, attributes: [NSAttributedString.Key.font: font], context: nil)
+        
+        return ceil(boundingBox.width)
+    }
+}
+
+// MARK: - Int
+
+extension Int {
+    
+    func formatUsingAbbrevation () -> String {
+        let numFormatter = NumberFormatter()
+        
+        typealias Abbrevation = (threshold:Double, divisor:Double, suffix:String)
+        let abbreviations:[Abbrevation] = [(0, 1, ""),
+                                           (1000.0, 1000.0, "K"),
+                                           (100_000.0, 1_000_000.0, "M"),
+                                           (100_000_000.0, 1_000_000_000.0, "B")]
+        // you can add more !
+        
+        let startValue = Double (abs(self))
+        let abbreviation:Abbrevation = {
+            var prevAbbreviation = abbreviations[0]
+            for tmpAbbreviation in abbreviations {
+                if (startValue < tmpAbbreviation.threshold) {
+                    break
+                }
+                prevAbbreviation = tmpAbbreviation
+            }
+            return prevAbbreviation
+        } ()
+        
+        let value = Double(self) / abbreviation.divisor
+        numFormatter.positiveSuffix = abbreviation.suffix
+        numFormatter.negativeSuffix = abbreviation.suffix
+        numFormatter.allowsFloats = true
+        numFormatter.minimumIntegerDigits = 1
+        numFormatter.minimumFractionDigits = 0
+        numFormatter.maximumFractionDigits = 1
+        
+        return numFormatter.string(from: NSNumber(value: value))!
+    }
+    
+}
+
+// MARK: - UIColor
+
+extension UIColor {
+    
+    convenience init(red: Int, green: Int, blue: Int) {
+        assert(red >= 0 && red <= 255, "Invalid red component")
+        assert(green >= 0 && green <= 255, "Invalid green component")
+        assert(blue >= 0 && blue <= 255, "Invalid blue component")
+        
+        self.init(red: CGFloat(red) / 255.0, green: CGFloat(green) / 255.0, blue: CGFloat(blue) / 255.0, alpha: 1.0)
+    }
+    
+    convenience init(rgb: Int) {
+        self.init(
+            red: (rgb >> 16) & 0xFF,
+            green: (rgb >> 8) & 0xFF,
+            blue: rgb & 0xFF
+        )
+    }
+    
+    static func appHomeEventBackGroundColor() -> UIColor {
+        return UIColor(fromHexString: "FFEFD8")!
+    }
+    
+    static func appTitleColor() -> UIColor {
+        return UIColor(fromHexString: "53525A")!
+    }
+    
+    static func appBlueColor() -> UIColor {
+        return UIColor(displayP3Red: 124/255.0, green: 207/255.0, blue: 208/255.0, alpha: 1.0)
+    }
+    
+    static func appGreyColor() -> UIColor {
+        return UIColor(displayP3Red: 38/255.0, green: 38/255.0, blue: 38/255.0, alpha: 1.0)
+    }
+    
+    static func appLightGreyColor() -> UIColor {
+        return UIColor(displayP3Red: 245/255.0, green: 245/255.0, blue: 245/255.0, alpha: 1.0)
+    }
+    
+    static func appStatusGreyColor() -> UIColor {
+        return UIColor(displayP3Red: 200/255.0, green: 200/255.0, blue: 200/255.0, alpha: 1.0)
+    }
+    
+    static func appOrangeColor() -> UIColor {
+        return UIColor(displayP3Red: 255/255.0, green: 140/255.0, blue: 0/255.0, alpha: 1.0)
+    }
+
+    static func appButtonColor() -> UIColor {
+        return UIColor(displayP3Red: 255/255.0, green: 93/255.0, blue: 0/255.0, alpha: 1.0)
+    }
+    
+    static func appRedColor() -> UIColor {
+        return UIColor(displayP3Red: 229/255.0, green: 53/255.0, blue: 43/255.0, alpha: 1.0)
+    }
+    
+    static func appGreenColor() -> UIColor {
+        return UIColor(displayP3Red: 126/255.0, green: 211/255.0, blue: 33/255.0, alpha: 1.0)
+    }
+    
+    static func appLikeColor() -> UIColor {
+        return UIColor(displayP3Red: 237/255.0, green: 73/255.0, blue: 86/255.0, alpha: 1.0)
+    }
+    
+    static func statusRedColor() -> UIColor {
+        return UIColor(displayP3Red: 229/255.0, green: 53/255.0, blue: 43/255.0, alpha: 1.0)
+    }
+    
+    static func statusOrangeColor() -> UIColor {
+        return UIColor(displayP3Red: 255/255.0, green: 93/255.0, blue: 0/255.0, alpha: 1.0)
+    }
+    
+    static func statusBlueColor() -> UIColor {
+        return UIColor(displayP3Red: 74/255.0, green: 144/255.0, blue: 226/255.0, alpha: 1.0)
+    }
+    
+    static func appTextLightBlackColor() -> UIColor {
+        return UIColor(displayP3Red: 136/255.0, green: 136/255.0, blue: 136/255.0, alpha: 1.0)
+    }
+    
+    static func appButtonLightBlackColor() -> UIColor {
+        return UIColor(displayP3Red: 200/255.0, green: 200/255.0, blue: 200/255.0, alpha: 1.0)
+    }
+    
+    static func appTextBlackColor() -> UIColor {
+        return UIColor(displayP3Red: 83/255.0, green: 82/255.0, blue: 90/255.0, alpha: 1.0)
+    }
+    
+    static func appLightYellowColor() -> UIColor {
+        return UIColor(displayP3Red: 255/255.0, green: 239/255.0, blue: 216/255.0, alpha: 1.0)
+    }
+    
+    static var newMessageBackgroundColor: UIColor {
+        return UIColor(displayP3Red: 255/255.0, green: 140/255.0, blue: 0/255.0, alpha: 0.15)
+    }
+    
+    static var newMessagePresidentBgColor: UIColor {
+        return UIColor(fromHexString: "FFEED9")
+    }
+    
+    static var newMessageControlColor: UIColor {
+        return UIColor(fromHexString: "53525A")
+    }
+    
+    static var messageControlColor: UIColor {
+        return UIColor(fromHexString: "888888")
+    }
+    
+    static func appDarkTextColor() -> UIColor {
+        return UIColor(displayP3Red: 36/255.0, green: 37/255.0, blue: 61/255.0, alpha: 1.0)
+    }
+    
+    static func unindicatorColor() -> UIColor {
+        return UIColor(displayP3Red: 255/255.0, green: 238/255.0, blue: 218/255.0, alpha: 1.0)
+    }
+    
+    static func indicatorColor() -> UIColor {
+           return UIColor(displayP3Red: 255/255.0, green: 140/255.0, blue: 0, alpha: 1.0)
+    }
+    
+    static func darkShimmerColor() -> UIColor {
+        return UIColor(displayP3Red: 242/255.0, green: 242/255.0, blue: 242/255.0, alpha: 1.0)
+    }
+    
+    static func sicklyGreenColor() -> UIColor {
+        return UIColor(displayP3Red: 135/255.0, green: 190/255.0, blue: 31/255.0, alpha: 1.0)
+    }
+    
+    static func marigoldColor() -> UIColor {
+        return UIColor(displayP3Red: 255/255.0, green: 189/255.0, blue: 0/255.0, alpha: 1.0)
+    }
+    
+    static func chocolateBrownColor() -> UIColor {
+        return UIColor(displayP3Red: 64/255.0, green: 28/255.0, blue: 0/255.0, alpha: 1.0)
+    }
+    
+    static func normalGrey() -> UIColor {
+        return UIColor(fromHexString: "CFCFCF")
+    }
+}
+
+// MARK: - UIView
+
+extension UIView {
+    
+    @IBInspectable var cornerRadius: CGFloat {
+        get {
+            return layer.cornerRadius
+        }
+        set {
+            layer.cornerRadius = newValue
+            layer.masksToBounds = newValue > 0
+            
+        }
+    }
+    
+    @IBInspectable var borderColor: UIColor {
+        get {
+            return UIColor(cgColor: (layer.borderColor ?? UIColor.clear.cgColor))
+        }
+        set {
+            layer.borderColor = newValue.cgColor
+        }
+    }
+    
+    @IBInspectable var borderWidth: CGFloat {
+        get {
+            return layer.borderWidth
+        }
+        set {
+            layer.borderWidth = newValue
+        }
+    }
+    
+    @IBInspectable var borderShadow: UIColor {
+        get {
+            return UIColor(cgColor: (layer.shadowColor ?? UIColor.clear.cgColor))
+        }
+        set {
+            layer.shadowColor = newValue.cgColor
+            layer.shadowOpacity = 0.3
+            layer.shadowOffset = CGSize(width: 4, height: 4)
+            layer.shadowRadius = 2
+        }
+    }
+    
+    static func putShadowOnView(viewToWorkUpon:UIView,
+                                shadowColor:UIColor,
+                                radius:CGFloat,
+                                offset:CGSize, opacity:Float) -> UIView{
+        
+        var shadowFrame = CGRect.zero // Modify this if needed
+        shadowFrame.size.width = 0.0
+        shadowFrame.size.height = 0.0
+        shadowFrame.origin.x = 0.0
+        shadowFrame.origin.y = 0.0
+        
+        let shadow = UIView(frame: shadowFrame)
+        shadow.isUserInteractionEnabled = false
+        shadow.layer.shadowColor = shadowColor.cgColor
+        shadow.layer.shadowOffset = offset
+        shadow.layer.shadowRadius = radius
+        shadow.layer.masksToBounds = false
+        shadow.clipsToBounds = false
+        shadow.layer.shadowOpacity = opacity
+        viewToWorkUpon.superview?.insertSubview(shadow, belowSubview: viewToWorkUpon)
+        shadow.addSubview(viewToWorkUpon)
+        return shadow
+    }
+    
+    static func emptyView() -> UIView {
+        let v = UIView()
+        v.isUserInteractionEnabled = false
+        return v
+    }
+}
+
+// MARK: - UILabel
+
+extension UILabel {
+    
+    var localizedTitle: String {
+        set (key) {
+            text = key.localized
+        }
+        get {
+            return text ?? ""
+        }
+    }
+    
+    var localizedAttributedTitle: String {
+        set (key) {
+            text = key.localized
+            
+            let underLine : [NSAttributedString.Key: Any] = [
+                NSAttributedString.Key.font : font!,
+                NSAttributedString.Key.foregroundColor : textColor!,
+                NSAttributedString.Key.underlineStyle : NSUnderlineStyle.single.rawValue]
+            let attributeString = NSMutableAttributedString(string: text ?? "", attributes: underLine)
+            attributedText = attributeString
+        }
+        get {
+            return text ?? ""
+        }
+    }
+    
+    var numberOfVisibleLines: Int {
+        let textSize = CGSize(width: CGFloat(self.frame.size.width), height: CGFloat(MAXFLOAT))
+        let rHeight: Int = lroundf(Float(self.sizeThatFits(textSize).height))
+        let charSize: Int = lroundf(Float(self.font.pointSize))
+        return rHeight / charSize
+    }
+    
+    var isTruncated: Bool {
+        guard let labelText = text else {
+            return false
+        }
+        
+        let labelTextSize = (labelText as NSString).boundingRect(
+            with: CGSize(width: frame.size.width, height: .greatestFiniteMagnitude),
+            options: .usesLineFragmentOrigin,
+            attributes: [.font: font!],
+            context: nil).size
+        
+        return labelTextSize.height > bounds.size.height
+    }
+    
+    func scaleFontWithRefrenceScreenSize(_ screenSize: ScreenSize) {
+        self.font = self.font.scaleForReferenceScreenSize(screenSize)
+    }
+    
+}
+
+//MARK: - UITextField
+
+extension UITextField {
+    @IBInspectable var placeHolderColor: UIColor? {
+        get {
+            return self.placeHolderColor
+        }
+        set {
+            if let newColor = newValue {
+                self.attributedPlaceholder = NSAttributedString(string:self.placeholder != nil ? self.placeholder! : "", attributes:[NSAttributedString.Key.foregroundColor: newColor])
+            }
+        }
+    }
+}
+
+// MARK: - UIButton
+
+extension UIButton {
+    
+    @IBInspectable var topInset: CGFloat {
+        get {
+            return contentEdgeInsets.top
+        }
+        set {
+            contentEdgeInsets.top = newValue
+        }
+    }
+    
+    @IBInspectable var bottomInset: CGFloat {
+        get {
+            return contentEdgeInsets.bottom
+        }
+        set {
+            contentEdgeInsets.bottom = newValue
+        }
+    }
+    
+    @IBInspectable var rightInset: CGFloat {
+        get {
+            return contentEdgeInsets.right
+        }
+        set {
+            contentEdgeInsets.right = newValue
+        }
+    }
+    
+    @IBInspectable var leftInset: CGFloat {
+        get {
+            return contentEdgeInsets.left
+        }
+        set {
+            contentEdgeInsets.left = newValue
+        }
+    }
+    
+    var localizedTitleForNormal: String {
+        set (key) {
+            setTitle(NSLocalizedString(key, comment: ""), for: UIControl.State())
+        }
+        get {
+            return title(for: UIControl.State())!
+        }
+    }
+    
+    var localizedTitleForHighlighted: String {
+        set (key) {
+            setTitle(NSLocalizedString(key, comment: ""), for: .highlighted)
+        }
+        get {
+            return title(for: .highlighted)!
+        }
+    }
+    
+    var localizedTitleForDisabled: String {
+        set (key) {
+            setTitle(NSLocalizedString(key, comment: ""), for: .disabled)
+        }
+        get {
+            return title(for: .disabled)!
+        }
+    }
+    
+    internal func setBackgroundImageAnimated(_ image: UIImage) {
+        UIView.transition(with: self,
+                          duration: 0.5,
+                          options: .transitionCrossDissolve,
+                          animations: {
+                            self.setBackgroundImage(image, for: .normal)
+        }, completion: nil)
+    }
+    
+    internal func setImageAnimated(_ image: UIImage, animated: Bool? = nil) {
+        if animated == true {
+            self.setImage(image, for: .normal)
+            return
+        }
+        UIView.transition(with: self,
+                          duration: 0.5,
+                          options: .transitionCrossDissolve,
+                          animations: {
+                            self.setImage(image, for: .normal)
+        }, completion: nil)
+    }
+    
+}
+
+// MARK: - UIImageView
+
+extension UIImageView {
+    
+    func setImageAnimated(_ image: UIImage, animated: Bool? = nil) {
+        if animated == true {
+            self.image = image
+            return
+        }
+        
+        
+        UIView.transition(with: self,
+                          duration: 0.3,
+                          options: .transitionCrossDissolve,
+                          animations: {
+                            self.image = image
+        }, completion: nil)
+    }
+    
+    func circleImage(_ borderColor: UIColor, size: CGFloat? = nil) {
+        cornerRadius = size == nil ? frame.size.width / 2 : size! / 2
+        if borderColor != UIColor.clear {
+            self.borderColor = borderColor
+            self.borderWidth = 2.0
+        }
+    }
+    
+}
+
+// MARK: - UIImage
+
+extension UIImage {
+    
+    static func from(color: UIColor) -> UIImage {
+        let rect = CGRect(origin: .zero, size: CGSize(width: 1, height: 1))
+        UIGraphicsBeginImageContextWithOptions(rect.size, false, 0.0)
+        color.setFill()
+        UIRectFill(rect)
+        let image = UIGraphicsGetImageFromCurrentImageContext()
+        UIGraphicsEndImageContext()
+        
+        return image!
+    }
+    
+    func cropImage(_ bound: CGRect) -> UIImage? {
+        let transformRotate: CGAffineTransform = CGAffineTransform.identity
+        let cropRect = CGRect(x: bound.origin.x, y: bound.origin.y, width: bound.size.width, height: bound.size.height)
+        let transform = transformRotate.scaledBy(x: self.scale, y: self.scale)
+        
+        let imgRef = self.cgImage!.cropping(to: cropRect.applying(transform))
+        let result = UIImage(cgImage: imgRef!, scale: self.scale, orientation: self.imageOrientation)
+        
+        return result
+    }
+    
+    func compress(toWidth width: CGFloat) -> UIImage {
+        if size.width < width {
+            return self
+        }
+        
+        let canvasSize = CGSize(width: width, height: CGFloat(ceil(width/size.width * size.height)))
+        UIGraphicsBeginImageContextWithOptions(canvasSize, false, scale)
+        defer { UIGraphicsEndImageContext() }
+        draw(in: CGRect(origin: .zero, size: canvasSize))
+        return UIGraphicsGetImageFromCurrentImageContext()!
+    }
+    
+    // MARK: - UIImage+Resize
+    func compressTo(_ expectedSizeInMb:Int) -> UIImage? {
+        let sizeInBytes = expectedSizeInMb * 1024 * 1024
+        var needCompress:Bool = true
+        var imgData:Data?
+        var compressingValue:CGFloat = 1.0
+        while (needCompress && compressingValue > 0.0) {
+            if let data:Data = self.jpegData(compressionQuality: compressingValue) {
+                if data.count < sizeInBytes {
+                    needCompress = false
+                    imgData = data
+                } else {
+                    compressingValue -= 0.1
+                }
+            }
+        }
+        
+        if let data = imgData {
+            if (data.count < sizeInBytes) {
+                return UIImage(data: data)
+            }
+        }
+        return nil
+    }
+    
+    func scaleToSize(_ newSize: CGSize) -> UIImage? {
+        UIGraphicsBeginImageContext(newSize)
+        draw(in: CGRect(x: 0, y: 0, width: newSize.width, height: newSize.height))
+        let newImage = UIGraphicsGetImageFromCurrentImageContext()
+        UIGraphicsEndImageContext()
+        return newImage
+    }
+    
+    func withInsets(_ insets: UIEdgeInsets) -> UIImage? {
+        UIGraphicsBeginImageContextWithOptions(
+            CGSize(width: size.width + insets.left + insets.right,
+                   height: size.height + insets.top + insets.bottom),
+            false,
+            self.scale)
+        
+        let origin = CGPoint(x: insets.left, y: insets.top)
+        self.draw(at: origin)
+        let imageWithInsets = UIGraphicsGetImageFromCurrentImageContext()
+        UIGraphicsEndImageContext()
+        
+        return imageWithInsets
+    }
+    
+}
+
+
+// MARK: - UIFont
+
+extension UIFont {
+    
+    static func appFontName() -> String {
+        return "UDShinMGoPro-Regular"
+    }
+    
+    static func appBoldFontName() -> String {
+        return "UDShinMGoPro-Bold"
+    }
+    
+    
+    static func appFontWithSize(size: CGFloat) -> UIFont {
+        return UIFont.systemFont(ofSize: size)
+    }
+    
+    
+    static func appBoldWithSize(size: CGFloat) -> UIFont {
+        return UIFont.boldSystemFont(ofSize: size)
+    }
+    
+}
+
+// MARK: - UIScrollView
+
+extension UIScrollView {
+    
+    func isBouncing() -> Bool {
+        let offset = self.contentOffset
+        let bounds = self.bounds
+        let size = self.contentSize
+        let inset = self.contentInset
+        let y = offset.y + bounds.size.height - inset.bottom
+        let h = size.height
+        let reloadDistance = CGFloat(50)
+        
+        if y > h + reloadDistance {
+            return true
+        }
+        return false
+    }
+    
+    func isNearBottom() -> Bool {
+        let bounds = self.bounds
+        let size = self.contentSize
+        let inset = self.contentInset
+        let y = bounds.origin.y + bounds.size.height - inset.bottom
+        let h = size.height
+        let reloadDistance = self.bounds.height / 3
+        
+        if y > h - reloadDistance {
+            return true
+        }
+        
+        return false
+    }
+    
+}
+
+extension UIViewController {
+
+    func showAlert(_ title: String? = nil, message: String? = nil) {
+        guard (presentedViewController is UIAlertController) == false else {
+            return
+        }
+        
+        let alertController = UIAlertController(title: title, message: message, preferredStyle: .alert)
+        alertController.addAction(UIAlertAction(title: "OK", style: .destructive, handler: nil))
+        present(alertController, animated: true, completion: nil)
+    }
+    
+    func showAlert(_ title: String? = nil, message: String? = nil, completionHandler: (()->Void)? = nil) {
+        guard (presentedViewController is UIAlertController) == false else {
+            return
+        }
+        
+        let alertController = UIAlertController(title: title, message: message, preferredStyle: .alert)
+        alertController.addAction(UIAlertAction(title: "OK", style: .destructive, handler: nil))
+        
+        present(alertController, animated: true, completion: completionHandler)
+    }
+    
+    func getTopInset() -> CGFloat {
+        let statusHeight = UIApplication.getStatusBarHeight()
+        let barHeight = (navigationController?.navigationBar.frame.size.height ?? 0) + statusHeight
+        
+        if #available(iOS 11.0, *) {
+            if navigationController?.navigationBar.prefersLargeTitles == false {
+                return barHeight
+            } else {
+                return barHeight - (navigationController?.navigationBar.lagreTitleHeight ?? 0)
+            }
+        } else {
+            return barHeight
+        }
+        /*
+         if (barHeight-kDefaultLargeTitleIpX) >= 0 {
+         barHeight = kDefaultTitleIpX
+         } else if (barHeight-kDefaultLargeTitle) >= 0 {
+         barHeight = kDefaultTitle
+         }
+         
+         return barHeight*/
+    }
+}
+
+extension UINavigationBar {
+    var lagreTitleHeight: CGFloat {
+        let maxSize = self.subviews
+            .filter { $0.frame.origin.y > 0 }
+            .max { $0.frame.origin.y < $1.frame.origin.y }
+            .map { $0.frame.size }
+        return maxSize?.height ?? 0
+    }
+}
+
+extension UIApplication {
+    
+    static func topViewController(controller: UIViewController? = UIApplication.shared.keyWindow?.rootViewController) -> UIViewController? {
+        if let navigationController = controller as? UINavigationController {
+            return topViewController(controller: navigationController.visibleViewController)
+        }
+        if let tabController = controller as? UITabBarController {
+            if let selected = tabController.selectedViewController {
+                return topViewController(controller: selected)
+            }
+        }
+        if let presented = controller?.presentedViewController {
+            return topViewController(controller: presented)
+        }
+        return controller
+    }
+    
+    static func getStatusBarHeight() -> CGFloat {
+        return UIApplication.shared.statusBarFrame.size.height
+    }
+    
+}
+
+extension UIFont {
+    fileprivate struct AssociatedKeys {
+        static var OriginalFontPointSize = "original_font_point_size"
+    }
+    
+    /// Returns whether the image is inflated.
+    fileprivate var originalFontPointSize: CGFloat {
+        get {
+            if let pointSize = objc_getAssociatedObject(self, &AssociatedKeys.OriginalFontPointSize) as? CGFloat {
+                return pointSize
+            } else {
+                return -1
+            }
+        }
+        set(inflated) {
+            objc_setAssociatedObject(self, &AssociatedKeys.OriginalFontPointSize, inflated, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+        }
+    }
+    
+    func scaleForReferenceScreenSize(_ screenSize: ScreenSize) -> UIFont {
+        if self.originalFontPointSize == -1 {
+            self.originalFontPointSize = self.pointSize
+        }
+        
+        var finalFont = self
+        let multiplier = self.fontPointSizeMultiplierForReferenceScreenSize(screenSize)
+        if multiplier != 1 {
+            let finalSize = self.originalFontPointSize * multiplier
+            finalFont = UIFont(descriptor: self.fontDescriptor, size: finalSize)
+            finalFont.originalFontPointSize = self.originalFontPointSize
+        }
+        return finalFont
+    }
+    
+    fileprivate func fontPointSizeMultiplierForReferenceScreenSize(_ screenSize: ScreenSize) -> CGFloat {
+        let currentScreenSize = UIScreen.main.bounds.width
+        return currentScreenSize / screenSize.rawValue
+    }
+}
+
+extension NSNotification.Name {
+    static let reloadPickedUpNotificationCenter = NSNotification.Name("reloadPickedUpNotificationCenter")
+    static let reloadHomeEventList = NSNotification.Name("reloadHomeEventList")
+    static let changePageIndexTutorial = NSNotification.Name("changePageIndexTutorial")
+   
+    static let hideSectionInStudentHome = NSNotification.Name("hideSectionInStudentHome")
+    static let showSectionInStudentHome = NSNotification.Name("showSectionInStudentHome")
+
+    // reload section data
+    static let reloadAllHomeSection = NSNotification.Name("reloadAllHomeSection")
+
+    static let reloadAppliedConfirmedEventSection = NSNotification.Name("reloadAppliedConfirmedEventSection")
+    static let reloadNewEventsSection             = NSNotification.Name("reloadNewEventsSection")
+    static let reloadRecommendedPresidentSection  = NSNotification.Name("reloadRecommendedPresidentSection")
+    static let reloadRecommendedEventSection      = NSNotification.Name("reloadRecommendedEventSection")
+    
+    static let reloadRecentEventSection           = NSNotification.Name("reloadRecentEventSection")
+    static let reloadRequestedEventSection        = NSNotification.Name("reloadRequestedEventSection")
+}
+
+extension JSQMessagesInputToolbar {
+    override open func didMoveToWindow() {
+        super.didMoveToWindow()
+        if #available(iOS 11.0, *), let window = self.window {
+            let anchor = window.safeAreaLayoutGuide.bottomAnchor
+            bottomAnchor.constraint(lessThanOrEqualToSystemSpacingBelow: anchor, multiplier: 1.0).isActive = true
+            
+        }
+    }
+}
+
+// MARK: - Protocols
+
+protocol TextInputBehavior: class {
+    func viewDidEndEditing<T: UIKeyInput>(_ inputView: T, inView view: UIView)
+}
+
+protocol ScrollViewBehavior: class {
+    func loadMore<T: UIScrollView>(_ view: T)
+}
+
+protocol CellBehavior: class {
+    func cellDidTap<T: UITableViewCell>(_ cell: T)
+}
+
+protocol TagSelectionDelegate: class {
+    func tagListDidSelected(_ list: [String], sourceController controller: UIViewController)
+}
+
+protocol ValidatePresenter {
+    func showError()
+}
+
+extension UIView {
+    class func fromNib<T: UIView>() -> T {
+        return Bundle.main.loadNibNamed(String(describing: T.self), owner: nil, options: nil)![0] as! T
+    }
+}
+
+extension UIImageView {
+    public func setImage(withURL url: URL?, placeHolderImage: UIImage? = nil) {
+        guard let url = url else { return }
+        af_setImage(withURL: url, placeholderImage: placeHolderImage ?? #imageLiteral(resourceName: "default_avatar"))
+    }
+}
+
+extension UITableView {
+    func regisCells(cellIdentifiers: [String]) {
+        for identifier in cellIdentifiers {
+            self.register(UINib(nibName: identifier, bundle: Bundle.main), forCellReuseIdentifier: identifier)
+        }
+    }
+}
+
+extension DateFormatter {
+    static func gInit() -> DateFormatter {
+        let dm = DateFormatter()
+        dm.calendar = Calendar(identifier: .gregorian)
+        return dm
+    }
+}
+
+extension UINavigationController {
+    open override var preferredStatusBarStyle: UIStatusBarStyle {
+        return topViewController?.preferredStatusBarStyle ?? .default
+    }
+}
+
+extension UIViewController {
+    
+    /**
+     *  Height of status bar + navigation bar (if navigation bar exist)
+     */
+    
+    var topbarHeight: CGFloat {
+        return UIApplication.shared.statusBarFrame.size.height +
+            (self.navigationController?.navigationBar.frame.height ?? 0.0)
+    }
+}
+
+extension PFGeoPoint {
+    func toLocationCoordinate2D() -> CLLocationCoordinate2D {
+        return CLLocationCoordinate2D(latitude: self.latitude, longitude: self.longitude)
+    }
+}
+
+extension CLLocationCoordinate2D {
+    func isEqual(with b: CLLocationCoordinate2D) -> Bool {
+        return self.latitude == b.latitude && self.longitude == b.longitude
+    }
+}
+
