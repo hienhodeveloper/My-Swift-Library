@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="15702" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+    <device id="retina6_1" orientation="portrait" appearance="light"/>
+    <dependencies>
+        <deployment identifier="iOS"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="15704"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <objects>
+        <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner" customClass="FloatingTextField" customModule="社長メシ" customModuleProvider="target">
+            <connections>
+                <outlet property="contentView" destination="iN0-l3-epB" id="UNo-Uy-Nq0"/>
+                <outlet property="requireMarkLabel" destination="HVO-zj-okx" id="aUU-BP-zq3"/>
+                <outlet property="seePasswordButton" destination="c7H-zl-NFw" id="fqt-o3-3az"/>
+                <outlet property="textField" destination="Wxd-YS-vuh" id="jOW-hz-5WP"/>
+                <outlet property="titleLabel" destination="zpA-si-dVB" id="dMx-2t-QH2"/>
+            </connections>
+        </placeholder>
+        <placeholder placeholderIdentifier="IBFirstResponder" id="-2" customClass="UIResponder"/>
+        <view contentMode="scaleToFill" insetsLayoutMarginsFromSafeArea="NO" id="iN0-l3-epB" userLabel="Container">
+            <rect key="frame" x="0.0" y="0.0" width="414" height="60"/>
+            <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+            <subviews>
+                <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="hK3-I1-bzC" userLabel="Content View">
+                    <rect key="frame" x="0.0" y="0.0" width="414" height="60"/>
+                    <subviews>
+                        <button hidden="YES" opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="roundedRect" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="c7H-zl-NFw">
+                            <rect key="frame" x="371" y="21" width="30" height="18"/>
+                            <constraints>
+                                <constraint firstAttribute="width" constant="30" id="2xK-hx-e1d"/>
+                            </constraints>
+                            <color key="tintColor" white="0.33333333329999998" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                            <state key="normal" image="ic_hide_password"/>
+                            <state key="highlighted" image="ic_show_password"/>
+                            <connections>
+                                <action selector="didTouchDownSeeButton:" destination="-1" eventType="touchDown" id="xWL-yo-81N"/>
+                                <action selector="didTouchUpSeeButton:" destination="-1" eventType="touchUpInside" id="BfJ-Tt-sGM"/>
+                            </connections>
+                        </button>
+                        <stackView opaque="NO" contentMode="scaleToFill" axis="vertical" translatesAutoresizingMaskIntoConstraints="NO" id="HGD-Uh-99b">
+                            <rect key="frame" x="10" y="4" width="361" height="52"/>
+                            <subviews>
+                                <stackView opaque="NO" contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="NdA-Or-kaB">
+                                    <rect key="frame" x="0.0" y="0.0" width="361" height="17"/>
+                                    <subviews>
+                                        <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="新しいメールアドレス" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="zpA-si-dVB">
+                                            <rect key="frame" x="0.0" y="0.0" width="123" height="17"/>
+                                            <fontDescription key="fontDescription" type="system" weight="medium" pointSize="12"/>
+                                            <color key="textColor" red="0.25098039215686274" green="0.10980392156862745" blue="0.0" alpha="0.84999999999999998" colorSpace="custom" customColorSpace="sRGB"/>
+                                            <nil key="highlightedColor"/>
+                                        </label>
+                                        <label opaque="NO" userInteractionEnabled="NO" contentMode="left" verticalHuggingPriority="251" text="*" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="HVO-zj-okx">
+                                            <rect key="frame" x="123" y="0.0" width="238" height="17"/>
+                                            <fontDescription key="fontDescription" type="system" weight="medium" pointSize="14"/>
+                                            <color key="textColor" red="1" green="0.36470588235294116" blue="0.0" alpha="0.84999999999999998" colorSpace="custom" customColorSpace="sRGB"/>
+                                            <nil key="highlightedColor"/>
+                                        </label>
+                                    </subviews>
+                                </stackView>
+                                <textField opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="left" contentVerticalAlignment="center" textAlignment="natural" minimumFontSize="17" translatesAutoresizingMaskIntoConstraints="NO" id="Wxd-YS-vuh">
+                                    <rect key="frame" x="0.0" y="17" width="361" height="35"/>
+                                    <fontDescription key="fontDescription" type="system" pointSize="14"/>
+                                    <textInputTraits key="textInputTraits" secureTextEntry="YES"/>
+                                    <connections>
+                                        <action selector="didBeginFocusTextField:" destination="-1" eventType="editingDidBegin" id="X7I-1I-Zm3"/>
+                                        <action selector="didEndFocusTextField:" destination="-1" eventType="editingDidEnd" id="jjP-xb-6VZ"/>
+                                    </connections>
+                                </textField>
+                            </subviews>
+                            <constraints>
+                                <constraint firstAttribute="height" constant="52" id="8B8-wN-BXc"/>
+                            </constraints>
+                        </stackView>
+                    </subviews>
+                    <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                    <gestureRecognizers/>
+                    <constraints>
+                        <constraint firstItem="HGD-Uh-99b" firstAttribute="leading" secondItem="hK3-I1-bzC" secondAttribute="leading" constant="10" id="12d-NH-wY0"/>
+                        <constraint firstItem="c7H-zl-NFw" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="hK3-I1-bzC" secondAttribute="leading" constant="20" symbolic="YES" id="2ml-bG-IHO"/>
+                        <constraint firstAttribute="trailing" secondItem="c7H-zl-NFw" secondAttribute="trailing" constant="13" id="GXJ-G0-dpb"/>
+                        <constraint firstItem="c7H-zl-NFw" firstAttribute="leading" secondItem="HGD-Uh-99b" secondAttribute="trailing" id="daG-6h-f9M"/>
+                        <constraint firstItem="c7H-zl-NFw" firstAttribute="centerY" secondItem="hK3-I1-bzC" secondAttribute="centerY" id="i7w-dD-vmS"/>
+                        <constraint firstItem="HGD-Uh-99b" firstAttribute="top" secondItem="hK3-I1-bzC" secondAttribute="top" constant="4" id="vit-T2-0OW"/>
+                        <constraint firstAttribute="bottom" secondItem="HGD-Uh-99b" secondAttribute="bottom" constant="4" id="yZ6-hc-l8o"/>
+                    </constraints>
+                    <userDefinedRuntimeAttributes>
+                        <userDefinedRuntimeAttribute type="number" keyPath="cornerRadius">
+                            <real key="value" value="8"/>
+                        </userDefinedRuntimeAttribute>
+                    </userDefinedRuntimeAttributes>
+                    <connections>
+                        <outletCollection property="gestureRecognizers" destination="V2U-YQ-pjz" appends="YES" id="RDN-Ym-B3g"/>
+                    </connections>
+                </view>
+            </subviews>
+            <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+            <constraints>
+                <constraint firstItem="hK3-I1-bzC" firstAttribute="leading" secondItem="iN0-l3-epB" secondAttribute="leading" id="0co-z4-z7e"/>
+                <constraint firstAttribute="trailing" secondItem="hK3-I1-bzC" secondAttribute="trailing" id="qTE-br-dil"/>
+                <constraint firstAttribute="bottom" secondItem="hK3-I1-bzC" secondAttribute="bottom" id="wDd-OH-VFs"/>
+                <constraint firstItem="hK3-I1-bzC" firstAttribute="top" secondItem="iN0-l3-epB" secondAttribute="top" id="zng-yy-LSS"/>
+            </constraints>
+            <freeformSimulatedSizeMetrics key="simulatedDestinationMetrics"/>
+            <userDefinedRuntimeAttributes>
+                <userDefinedRuntimeAttribute type="number" keyPath="cornerRadius">
+                    <real key="value" value="8"/>
+                </userDefinedRuntimeAttribute>
+                <userDefinedRuntimeAttribute type="number" keyPath="borderWidth">
+                    <real key="value" value="1"/>
+                </userDefinedRuntimeAttribute>
+            </userDefinedRuntimeAttributes>
+            <point key="canvasLocation" x="136.23188405797103" y="154.35267857142856"/>
+        </view>
+        <tapGestureRecognizer id="V2U-YQ-pjz">
+            <connections>
+                <action selector="didTapWholeView:" destination="-1" id="WAl-Rw-kF3"/>
+            </connections>
+        </tapGestureRecognizer>
+    </objects>
+    <resources>
+        <image name="ic_hide_password" width="19" height="13"/>
+        <image name="ic_show_password" width="19" height="13"/>
+    </resources>
+</document>
